@@ -1,1 +1,4 @@
+server:
+  port: 8081
 test-tool-url: https://api.zephyrscale.smartbear.com/v2/issuelinks/{jiraId}/testcases
+jenkins-url: http://localhost:8080/job/AdminApp1/build?token=vishalarora --user root:root

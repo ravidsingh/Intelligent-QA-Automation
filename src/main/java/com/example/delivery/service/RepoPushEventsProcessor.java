@@ -77,7 +77,7 @@ public class RepoPushEventsProcessor {
 		JsonParser parser = JsonParserFactory.getJsonParser();
 		Map<String, Object> req = parser.parseMap(pushEvent);
 		ResponseEntity<?> result = null;
-		var targetApp = new HashSet<String>(); 
+		var targetApp = new HashSet<String>();
 		if (null != req.get(REF) && req.get(REF).equals(REFS_HEADS_MAIN)) {
 			log.info("Processing github push event.");
 			try {
@@ -102,24 +102,25 @@ public class RepoPushEventsProcessor {
 						var listForDeletedFiles = convertToList(commitObj.get("removed"), objectMapper);
 						var listForUpdatedFiles = convertToList(commitObj.get("modified"), objectMapper);
 
-						  var moduleListForAdd = listForAddedFiles.stream().map(val -> { var str =
-						  Objects.toString(val, null); return val.toString().substring(0,
-						  val.toString().indexOf("/")); }) .collect(Collectors.toSet());
-						  
-						  var moduleListForDelete = listForDeletedFiles.stream() .map(val ->
-						  val.toString().substring(0, val.toString().indexOf("/")))
-						  .collect(Collectors.toSet());
-						  
-						  var moduleListForUpdate = listForUpdatedFiles.stream() .map(val ->
-						  val.toString().substring(0, val.toString().indexOf("/")))
-						  .collect(Collectors.toSet());
-						  
-						  targetApp.addAll(moduleListForAdd);
-						  targetApp.addAll(moduleListForDelete);
-						  targetApp.addAll(moduleListForUpdate);
-						  log.info("Triggered automation job for module: {}", targetApp);
+						var moduleListForAdd = listForAddedFiles.stream().map(val -> {
+							var str = Objects.toString(val, null);
+							return val.toString().substring(0, val.toString().indexOf("/"));
+						}).collect(Collectors.toSet());
+
+						var moduleListForDelete = listForDeletedFiles.stream()
+								.map(val -> val.toString().substring(0, val.toString().indexOf("/")))
+								.collect(Collectors.toSet());
+
+						var moduleListForUpdate = listForUpdatedFiles.stream()
+								.map(val -> val.toString().substring(0, val.toString().indexOf("/")))
+								.collect(Collectors.toSet());
+
+						targetApp.addAll(moduleListForAdd);
+						targetApp.addAll(moduleListForDelete);
+						targetApp.addAll(moduleListForUpdate);
+						log.info("Triggered automation job for module: {}", targetApp);
 					}
-					
+
 					HttpHeaders headers = new HttpHeaders();
 
 					headers.setContentType(MediaType.APPLICATION_JSON);
@@ -129,7 +130,7 @@ public class RepoPushEventsProcessor {
 					ArtifactInformation request = new ArtifactInformation();
 					request.setTestCases(testCaseId);
 					request.setPackageList(new ArrayList<>(targetApp));
-					
+
 					HttpEntity<ArtifactInformation> httpEntity = new HttpEntity<>(request, headers);
 					result = restTemplate.postForEntity(uri, httpEntity, Object.class);
 				} else {
@@ -177,10 +178,10 @@ public class RepoPushEventsProcessor {
 		header.add("Authorization", qtestKey);
 		response = restTemplate.exchange(qtestUrl, HttpMethod.GET, new HttpEntity<>(header), Object.class,
 				getqtestParam(projectId));
-		var qtestResponse = (List<Object>)(response.getBody());
-		//var reqList = objectMapper.writeValueAsString(header)
+		var qtestResponse = (List<Object>) (response.getBody());
+		// var reqList = objectMapper.writeValueAsString(header)
 		return getTestCaseInfo(objectMapper, qtestResponse, parser, jiraId);
-		//return null;
+		// return null;
 	}
 
 	private List<String> getTestCaseInfo(ObjectMapper objectMapper, List<Object> zephyrResponse)

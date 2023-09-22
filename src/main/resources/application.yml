@@ -3,5 +3,5 @@ server:
 test-tool-url: https://api.zephyrscale.smartbear.com/v2/issuelinks/{jiraId}/testcases
 qtest-url: https://touchlessreg.qtestnet.com/api/v3/projects/{projectId}/requirements/trace-matrix-report
 jenkins-url: http://localhost:8080/job/AdminApp1/build?token=vishalarora --user root:root
-use-qtest: true
+use-qtest: false
 projectId: 8101

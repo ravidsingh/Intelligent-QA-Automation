@@ -1,6 +1,9 @@
 package com.example.delivery.service;
 
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -23,9 +26,13 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
-import com.example.delivery.model.ArtifactInformation;
+import com.cdancy.jenkins.rest.JenkinsClient;
+import com.cdancy.jenkins.rest.domain.common.IntegerResponse;
+import com.cdancy.jenkins.rest.domain.system.SystemInfo;
 import com.example.delivery.model.QtestRequirement;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -77,23 +84,29 @@ public class RepoPushEventsProcessor {
 		JsonParser parser = JsonParserFactory.getJsonParser();
 		Map<String, Object> req = parser.parseMap(pushEvent);
 		ResponseEntity<?> result = null;
-		var targetApp = new HashSet<String>(); 
+		var targetApp = new HashSet<String>();
 		if (null != req.get(REF) && req.get(REF).equals(REFS_HEADS_MAIN)) {
 			log.info("Processing github push event.");
 			try {
 				Map<String, Object> commitObj = parser.parseMap(objectMapper.writeValueAsString(req.get(HEAD_COMMIT)));
 				String[] lines = commitObj.get(PR_MESSAGE).toString().split(NEXT_LINE_DELIMETER);
-				Pattern jiraIdPattern = Pattern.compile("IQE-[0-9]+", Pattern.CASE_INSENSITIVE);
+				Pattern jiraIdPattern = Pattern.compile("DEPRPS-[0-9]+", Pattern.CASE_INSENSITIVE);
 				String prMessage = lines[lines.length - 1];
 				Matcher jiraIdmatcher = jiraIdPattern.matcher(prMessage);
 				if (jiraIdmatcher.find()) {
 					var jiraId = jiraIdmatcher.group();
 					log.info("Changes merged to main branch for Jira Id: {}", jiraId);
 
-					if (prMessage.contains("#QTest")) {
+					if ((prMessage.contains("#QTest") || prMessage.contains("#Zephyr"))) {
 						testCaseId = useQtest ? fetchQtestTestCases(parser, jiraId, objectMapper)
 								: fetchZephyrTestCases(parser, jiraId, objectMapper);
-						log.info("Excecuting Test cases: {} for user story: {}", testCaseId, jiraId);
+						 String testIds = String.join(" or ", testCaseId );
+							log.info("Excecuting Test cases: [{}] for user story: {}", testIds, jiraId);
+						String command = getJenkinsBuildWithParamUrl("test1", testIds);
+						Process process = Runtime.getRuntime().exec(command);
+						var responseMsg = process.getInputStream().read() >0 ? "Successfully called Jenkin Job"
+								: "Error occurred while calling Jenkin job";
+						log.info(responseMsg);
 					}
 
 					if (prMessage.contains("#Regression")) {
@@ -102,36 +115,29 @@ public class RepoPushEventsProcessor {
 						var listForDeletedFiles = convertToList(commitObj.get("removed"), objectMapper);
 						var listForUpdatedFiles = convertToList(commitObj.get("modified"), objectMapper);
 
-						  var moduleListForAdd = listForAddedFiles.stream().map(val -> { var str =
-						  Objects.toString(val, null); return val.toString().substring(0,
-						  val.toString().indexOf("/")); }) .collect(Collectors.toSet());
-						  
-						  var moduleListForDelete = listForDeletedFiles.stream() .map(val ->
-						  val.toString().substring(0, val.toString().indexOf("/")))
-						  .collect(Collectors.toSet());
-						  
-						  var moduleListForUpdate = listForUpdatedFiles.stream() .map(val ->
-						  val.toString().substring(0, val.toString().indexOf("/")))
-						  .collect(Collectors.toSet());
-						  
-						  targetApp.addAll(moduleListForAdd);
-						  targetApp.addAll(moduleListForDelete);
-						  targetApp.addAll(moduleListForUpdate);
-						  log.info("Triggered automation job for module: {}", targetApp);
+						var moduleListForAdd = listForAddedFiles.stream().map(val -> {
+							var str = Objects.toString(val, null);
+							return val.toString().substring(0, val.toString().indexOf("/"));
+						}).collect(Collectors.toSet());
+
+						var moduleListForDelete = listForDeletedFiles.stream()
+								.map(val -> val.toString().substring(0, val.toString().indexOf("/")))
+								.collect(Collectors.toSet());
+
+						var moduleListForUpdate = listForUpdatedFiles.stream()
+								.map(val -> val.toString().substring(0, val.toString().indexOf("/")))
+								.collect(Collectors.toSet());
+
+						targetApp.addAll(moduleListForAdd);
+						targetApp.addAll(moduleListForDelete);
+						targetApp.addAll(moduleListForUpdate); 
+						for(String module: targetApp) {
+							String command = getJenkinsBuildUrl(module);
+							Process process = Runtime.getRuntime().exec(command);
+						}
+						log.info("Triggered automation job for module: {}", targetApp);
 					}
-					
-					HttpHeaders headers = new HttpHeaders();
-
-					headers.setContentType(MediaType.APPLICATION_JSON);
-					headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-					URI uri = new URI("https://3dd3-49-36-91-7.in.ngrok.io/jenkins/remote/invoke");
-
-					ArtifactInformation request = new ArtifactInformation();
-					request.setTestCases(testCaseId);
-					request.setPackageList(new ArrayList<>(targetApp));
-					
-					HttpEntity<ArtifactInformation> httpEntity = new HttpEntity<>(request, headers);
-					result = restTemplate.postForEntity(uri, httpEntity, Object.class);
+					 
 				} else {
 					log.info(
 							"No Jira Id found in the PR message. Can't process further. Please provide Jira-id in the PR message.");
@@ -166,7 +172,9 @@ public class RepoPushEventsProcessor {
 		List<Object> zephyrResponse = parser.parseList(response.getBody());
 		var testcase = getTestCaseInfo(objectMapper, zephyrResponse);
 		var testCaseId = testcase.stream().map(val -> parser.parseMap(val).get("key").toString())
+				.map(str->"@"+str)
 				.collect(Collectors.toList());
+		log.info("testcase tags: {}", testCaseId);
 		return testCaseId;
 	}
 
@@ -177,10 +185,10 @@ public class RepoPushEventsProcessor {
 		header.add("Authorization", qtestKey);
 		response = restTemplate.exchange(qtestUrl, HttpMethod.GET, new HttpEntity<>(header), Object.class,
 				getqtestParam(projectId));
-		var qtestResponse = (List<Object>)(response.getBody());
-		//var reqList = objectMapper.writeValueAsString(header)
+		var qtestResponse = (List<Object>) (response.getBody());
+		// var reqList = objectMapper.writeValueAsString(header)
 		return getTestCaseInfo(objectMapper, qtestResponse, parser, jiraId);
-		//return null;
+		// return null;
 	}
 
 	private List<String> getTestCaseInfo(ObjectMapper objectMapper, List<Object> zephyrResponse)
@@ -231,5 +239,35 @@ public class RepoPushEventsProcessor {
 		uriVariables.put("projectId", value);
 		return uriVariables;
 	}
+	
+	private String getJenkinsBuildWithParamUrl(String jobName, String buildParams) {
+        String jobUrl = "curl -I ".concat("http://localhost:8080/job").concat("/").concat(jobName).concat("/")
+                .concat("buildWithParameters?token=").concat("ravideep").concat("&").concat("testsuite").concat("=")
+                +(buildParams).concat(" ").concat("--user").concat(" ").concat("root").concat(":")
+                .concat("root");
+        log.info("job url {}", jobUrl);
+        return jobUrl;
 
+	}
+	
+	private String getJenkinsBuildUrl(String jobName) {
+        String jobUrl = "curl -I ".concat("http://localhost:8080/job").concat("/").concat(jobName).concat("/")
+                .concat("build?token=").concat("ravideep").concat(" ").concat("--user").concat(" ").concat("root").concat(":")
+                .concat("root");
+        return jobUrl;
+	}
+	
+	private boolean isDeployDone() throws Exception {
+		int status;
+		do {
+		URL url = new URL("http://13.58.54.12/login");
+		HttpURLConnection connection = (HttpURLConnection)url.openConnection();
+		connection.connect();
+		status = connection.getResponseCode();
+		log.info("Code deployment status {}", status);
+		System.out.println("Code deployment status "+status);
+		Thread.sleep(5000);
+	}while(status!=200);
+			return status==200 ? true : false;
+	}
 }

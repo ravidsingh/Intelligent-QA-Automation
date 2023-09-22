@@ -97,7 +97,7 @@ public class RepoPushEventsProcessor {
 					var jiraId = jiraIdmatcher.group();
 					log.info("Changes merged to main branch for Jira Id: {}", jiraId);
 
-					if ((prMessage.contains("#QTest") || prMessage.contains("#Zephyr"))) {
+					if (isDeployDone() && (prMessage.contains("#QTest") || prMessage.contains("#Zephyr"))) {
 						testCaseId = useQtest ? fetchQtestTestCases(parser, jiraId, objectMapper)
 								: fetchZephyrTestCases(parser, jiraId, objectMapper);
 						 String testIds = String.join(" or ", testCaseId );
@@ -266,7 +266,7 @@ public class RepoPushEventsProcessor {
 		status = connection.getResponseCode();
 		log.info("Code deployment status {}", status);
 		System.out.println("Code deployment status "+status);
-		Thread.sleep(5000);
+		Thread.sleep(10000);
 	}while(status!=200);
 			return status==200 ? true : false;
 	}

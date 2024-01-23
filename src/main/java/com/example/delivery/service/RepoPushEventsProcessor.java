@@ -241,7 +241,7 @@ public class RepoPushEventsProcessor {
 	}
 	
 	private String getJenkinsBuildWithParamUrl(String jobName, String buildParams) {
-        String jobUrl = "curl -I ".concat("http://localhost:8080/job").concat("/").concat(jobName).concat("/")
+        String jobUrl = "curl -I ".concat(jenkinsUrl).concat("/").concat(jobName).concat("/")
                 .concat("buildWithParameters?token=").concat("ravideep").concat("&").concat("testsuite").concat("=")
                 +(buildParams).concat(" ").concat("--user").concat(" ").concat("root").concat(":")
                 .concat("root");
@@ -251,7 +251,7 @@ public class RepoPushEventsProcessor {
 	}
 	
 	private String getJenkinsBuildUrl(String jobName) {
-        String jobUrl = "curl -I ".concat("http://localhost:8080/job").concat("/").concat(jobName).concat("/")
+        String jobUrl = "curl -I ".concat(jenkinsUrl).concat("/").concat(jobName).concat("/")
                 .concat("build?token=").concat("ravideep").concat(" ").concat("--user").concat(" ").concat("root").concat(":")
                 .concat("root");
         return jobUrl;
@@ -262,11 +262,11 @@ public class RepoPushEventsProcessor {
 		do {
 		URL url = new URL("http://13.58.54.12/login");
 		HttpURLConnection connection = (HttpURLConnection)url.openConnection();
+		Thread.sleep(120*1000);
 		connection.connect();
 		status = connection.getResponseCode();
 		log.info("Code deployment status {}", status);
 		System.out.println("Code deployment status "+status);
-		Thread.sleep(10000);
 	}while(status!=200);
 			return status==200 ? true : false;
 	}

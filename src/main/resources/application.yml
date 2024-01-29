@@ -1,8 +1,8 @@
 server:
   port: 8081
-test-tool-url: https://api.zephyrscale.smartbear.com/v2/issuelinks/{jiraId}/testcases
+#test-tool-url: https://api.zephyrscale.smartbear.com/v2/issuelinks/{jiraId}/testcases
+test-tool-url: https://iriseudev.deloitte.com/rest/api/2/issue/{jiraId}
 qtest-url: https://touchlessreg.qtestnet.com/api/v3/projects/{projectId}/requirements/trace-matrix-report
 #jenkins-url: http://localhost:8080/job/AdminApp1/build?token=vishalarora --user root:root
 jenkins-url: http://3.130.246.234:8080/job
 use-qtest: false
-projectId: 8101

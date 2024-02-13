@@ -48,7 +48,7 @@ public class RepoPushEventsProcessor {
 
 	private static final String PR_MESSAGE = "message";
 
-	private static final String REFS_HEADS_MAIN = "refs/heads/main";
+	private static final String REFS_HEADS_MAIN = "refs/heads/test-setup";
 
 	@Autowired
 	RestTemplate restTemplate;
@@ -243,8 +243,8 @@ public class RepoPushEventsProcessor {
 	private String getJenkinsBuildWithParamUrl(String jobName, String buildParams) {
         String jobUrl = "curl -I ".concat(jenkinsUrl).concat("/").concat(jobName).concat("/")
                 .concat("buildWithParameters?token=").concat("ravideep").concat("&").concat("testsuite").concat("=")
-                +(buildParams).concat(" ").concat("--user").concat(" ").concat("root").concat(":")
-                .concat("root");
+                +(buildParams).concat(" ").concat("--user").concat(" ").concat("admin").concat(":")
+                .concat("admin");
         log.info("job url {}", jobUrl);
         return jobUrl;
 
@@ -252,21 +252,20 @@ public class RepoPushEventsProcessor {
 	
 	private String getJenkinsBuildUrl(String jobName) {
         String jobUrl = "curl -I ".concat(jenkinsUrl).concat("/").concat(jobName).concat("/")
-                .concat("build?token=").concat("ravideep").concat(" ").concat("--user").concat(" ").concat("root").concat(":")
-                .concat("root");
+                .concat("build?token=").concat("ravideep").concat(" ").concat("--user").concat(" ").concat("admin").concat(":")
+                .concat("admin");
         return jobUrl;
 	}
 	
 	private boolean isDeployDone() throws Exception {
 		int status;
 		do {
-		URL url = new URL("http://13.58.54.12/login");
+		URL url = new URL("http://3.130.246.234/login");
 		HttpURLConnection connection = (HttpURLConnection)url.openConnection();
-		Thread.sleep(120*1000);
+		Thread.sleep(180*1000);
 		connection.connect();
 		status = connection.getResponseCode();
 		log.info("Code deployment status {}", status);
-		System.out.println("Code deployment status "+status);
 	}while(status!=200);
 			return status==200 ? true : false;
 	}

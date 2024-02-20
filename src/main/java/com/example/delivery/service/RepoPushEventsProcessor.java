@@ -54,7 +54,7 @@ public class RepoPushEventsProcessor {
 		String branchNameFilterRegex = "$['ref']";
 		String branchName = JsonPath.using(configuration).parse(pushEvent).read(branchNameFilterRegex);
 		List<String> testCaseId = null;
-		if (null != branchName && REFS_HEADS_MAIN.equals(branchName)) {
+		if (REFS_HEADS_MAIN.equals(branchName)) {
 			log.info("Processing github push event.");
 			try {
 				String commitFilterRegex = "$['commits'][0]['message']";
@@ -66,9 +66,14 @@ public class RepoPushEventsProcessor {
 					log.info("Changes merged to main branch for Jira Id: {}", jiraId);
 
 					testCaseId = fetchJiraTestCases(jiraId);
-					String testIds = String.join(" or ", testCaseId);
+					String testIds = String.join(" , ", testCaseId);
 					log.info("Excecuting Test cases: [{}] for feature : {}", testIds, jiraId);
-					return ResponseEntity.ok(testIds);
+					//return ResponseEntity.ok(testIds);
+					String command = getJenkinsBuildWithParamUrl(testIds);
+					Process process = Runtime.getRuntime().exec(command);
+					var responseMsg = process.getInputStream().read() >0 ? "Successfully called Jenkin Job"
+							: "Error occurred while calling Jenkin job";
+					log.info(responseMsg);
 				} else {
 					log.info(
 							"No Jira Id found in the PR message. Can't process further. Please provide Jira-id in the PR message.");
@@ -119,18 +124,11 @@ public class RepoPushEventsProcessor {
 		return uriVariables;
 	}
 
-	private String getJenkinsBuildWithParamUrl(String jobName, String buildParams) {
-		String jobUrl = "curl -I ".concat(jenkinsUrl).concat("/").concat(jobName).concat("/")
-				.concat("buildWithParameters?token=").concat("ravideep").concat("&").concat("testsuite").concat("=")
+	private String getJenkinsBuildWithParamUrl(String buildParams) {
+		String jobUrl = "curl -I ".concat(jenkinsUrl).concat("&").concat("test").concat("=")
 				+ (buildParams).concat(" ").concat("--user").concat(" ").concat("root").concat(":").concat("root");
-		log.info("job url {}", jobUrl);
-		return jobUrl;
-
-	}
-
-	private String getJenkinsBuildUrl(String jobName) {
-		String jobUrl = "curl -I ".concat(jenkinsUrl).concat("/").concat(jobName).concat("/").concat("build?token=")
-				.concat("ravideep").concat(" ").concat("--user").concat(" ").concat("root").concat(":").concat("root");
+		log.info("job url {} triggered", jenkinsUrl);
 		return jobUrl;
 	}
+
 }
